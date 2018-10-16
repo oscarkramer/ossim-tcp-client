@@ -1,0 +1,76 @@
+stages:
+- build
+- publish_sources
+- publish
+- deploy
+
+before_script:
+  - 'sudo apt-add-repository ppa:ansible/ansible -y'
+  - sudo apt-get update
+  - sudo apt-get install jq -y
+  - sudo apt-get install ansible -y
+
+variables:
+  IMAGE_NAME: /directstream-tcp-client
+
+publish_test_sources:
+  stage: publish_sources
+  only:
+    - develop
+  script:
+    - 'curl --request GET --header "PRIVATE-TOKEN: $PRIVATE_TOKEN" "https://platform.git.directstream.com/api/v3/projects/directstream%2fdirectstream-ansible/repository/files?file_path=deploy_project.yml&ref=master" | jq -r ".content" | base64 -d > /tmp/deploy-project.yml'
+    - ansible-playbook -i 'localhost,' /tmp/deploy-project.yml --extra-vars "dest=projects.test.directstream.com source=platform.git.directstream.com project_name=\"$CI_PROJECT_NAME\" project_group=\"$CI_PROJECT_NAMESPACE\" source_branch=develop dest_user=\"$DEST_USER\" dest_password=\"$DEST_PASSWORD\" dest_token=\"$DEST_TOKEN\" source_user=\"$SOURCE_USER\" source_password=\"$SOURCE_PASSWORD\""
+
+build_image_test:
+  stage: build
+  script:
+  - docker build -t $REGISTRY_TEST$IMAGE_NAME:$CI_PIPELINE_ID -t $REGISTRY_TEST$IMAGE_NAME:latest .
+  only:
+    - develop
+  
+publish_test:
+  stage: publish
+  script:
+    - docker push $REGISTRY_TEST$IMAGE_NAME:$CI_PIPELINE_ID
+    - docker push $REGISTRY_TEST$IMAGE_NAME:latest
+  only:
+    - develop
+
+build_image_sandbox:
+  stage: build
+  script:
+  - docker build -t $REGISTRY_SANDBOX$IMAGE_NAME:$CI_PIPELINE_ID -t $REGISTRY_SANDBOX$IMAGE_NAME:latest .
+  only:
+    - sandbox
+  
+publish_sandbox:
+  stage: publish
+  script:
+    - docker push $REGISTRY_SANDBOX$IMAGE_NAME:$CI_PIPELINE_ID
+    - docker push $REGISTRY_SANDBOX$IMAGE_NAME:latest
+  only:
+    - sandbox
+ 
+build_image_prod:
+  stage: build
+  script:
+  - docker build -t $REGISTRY_PROD$IMAGE_NAME:$CI_PIPELINE_ID -t $REGISTRY_PROD$IMAGE_NAME:latest .
+  only:
+    - prod
+  
+publish_prod:
+  stage: publish
+  script:
+    - docker push $REGISTRY_PROD$IMAGE_NAME:$CI_PIPELINE_ID
+    - docker push $REGISTRY_PROD$IMAGE_NAME:latest
+  only:
+    - prod
+
+trigger_base_client_docker_build:
+  stage: deploy
+  script:
+    - "curl -X POST -F token=$TCP_CLIENTS_TOKEN -F ref=$CI_COMMIT_REF_NAME https://platform.git.directstream.com/api/v4/projects/188/trigger/pipeline"
+  only:
+    - develop
+    - sandbox
+    - prod

@@ -1,0 +1,5 @@
+.idea
+js-client-library/test/out.data
+*.user
+js-client-library/test-app/tests/out.data
+cmake-build-debug

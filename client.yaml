@@ -1,0 +1,5 @@
+EnvironmentVariables:
+    - name: TCP_CLIENT_BLOCK_SIZE
+      value: 4096
+    - name: DEFAULT_APP_NAME
+      value: 'Standard TCP Client'
